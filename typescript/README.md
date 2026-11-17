@@ -2,11 +2,12 @@
 
 **An open standard for launch-risk alerts on Solana launchpads, with small SDKs to receive them safely.**
 
-Security providers, wallets, launchpads and trading terminals all want to warn users about risky token launches. Today every provider invents its own payload and its own webhook signing, so each integration is built from scratch. This project defines one simple format and one signing scheme, and ships verified reference SDKs for TypeScript and Python.
+Security providers, wallets, launchpads and trading terminals all want to warn users about risky token launches. Today every provider invents its own payload and its own webhook signing, so each integration is built from scratch. This project defines one simple format and one signing scheme, and ships verified reference SDKs for TypeScript and Python, plus a Rust SDK in alpha.
 
 - **[SPEC.md](SPEC.md):** the alert object, the alert types, the evidence levels and the webhook signing rules.
 - **[schema/](schema/launch-alert.v1.schema.json):** JSON Schema (draft 2020-12) of an alert.
 - **[typescript/](typescript/)** and **[python/](python/):** reference SDKs, no runtime dependencies.
+- **[rust/](rust/):** Rust SDK (alpha), same behaviour, same test vectors.
 - **[examples/](examples/):** synthetic example alerts and cross-language signature test vectors.
 
 MIT licence. Maintained by [EMERGE](#maintainers); used in production by Trenchwatch.
@@ -83,6 +84,22 @@ async def alerts(request: Request):
     return Response(status_code=200)
 ```
 
+### Rust (alpha)
+
+See [rust/README.md](rust/README.md). Install from Git for now:
+
+```toml
+solana-launch-alerts = { git = "https://github.com/Trenchwatch/solana-launch-alerts" }
+```
+
+```rust
+use solana_launch_alerts::{verify_request, parse_alert, VerifyOptions};
+
+let pairs = headers.iter().map(|(k, v)| (k.as_str(), v.to_str().unwrap_or("")));
+if !verify_request(pairs, &raw_body, &secret, &VerifyOptions::default()) { /* 401 */ }
+let alert = parse_alert(&raw_body)?;
+```
+
 Another provider's headers? Pass its name: `verify_request(headers, raw, secret, provider="Acme")` / `verifyRequest(headers, raw, secret, { provider: "Acme" })`.
 
 ## Sending alerts (providers)
@@ -100,11 +117,12 @@ Retries keep the same `id` and are signed again with a fresh timestamp.
 
 ## Tests
 
-Both SDKs are tested against the same vectors in [`examples/test-vectors.json`](examples/test-vectors.json).
+All three SDKs are tested against the same vectors in [`examples/test-vectors.json`](examples/test-vectors.json).
 
 ```bash
 cd python && pip install -e ".[test]" && pytest
 cd typescript && npm install && npm test
+cd rust && cargo test
 ```
 
 ## Responsible use
