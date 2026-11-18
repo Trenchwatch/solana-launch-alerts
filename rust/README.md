@@ -1,16 +1,15 @@
 # solana-launch-alerts (Rust) · alpha
 
-Rust SDK for the **[Solana Launch Alerts](../README.md)** open standard: verify signed launch-risk alert webhooks and parse alerts (spec version `2026-10`).
+Rust SDK for the **[Solana Launch Alerts](https://github.com/Trenchwatch/solana-launch-alerts/blob/main/README.md)** open standard: verify signed launch-risk alert webhooks and parse alerts (spec version `2026-10`).
 
-Same behaviour as the TypeScript and Python reference SDKs, checked against the same cross-language test vectors in [`../examples/test-vectors.json`](../examples/test-vectors.json).
+Same behaviour as the TypeScript and Python reference SDKs, checked against the same cross-language test vectors in [`examples/test-vectors.json`](https://github.com/Trenchwatch/solana-launch-alerts/blob/main/examples/test-vectors.json).
 
-> **Status: alpha (`0.1.0-alpha.1`).** The API may still change before 1.0. Not yet published on crates.io; use it from Git for now.
+> **Status: alpha (`0.1.0-alpha.1`).** The API may still change before 1.0.
 
 ## Install
 
-```toml
-[dependencies]
-solana-launch-alerts = { git = "https://github.com/Trenchwatch/solana-launch-alerts" }
+```bash
+cargo add solana-launch-alerts@0.1.0-alpha.1
 ```
 
 Minimum Rust version: 1.70. Dependencies: `hmac`, `sha2`, `hex`, `serde_json`. No `unsafe` code.
@@ -54,6 +53,8 @@ Another provider's headers? Set `VerifyOptions { provider: "Acme".into(), ..Defa
 | `Alert::is_known_type()` / `Alert::level_rank()` | Filter by known codes and by minimum evidence level (0 = `RELATED` … 3 = `CONFIRMED`). |
 
 ## Tests and example
+
+From a clone of the [repository](https://github.com/Trenchwatch/solana-launch-alerts) (the tests read the shared vectors in `examples/`):
 
 ```bash
 cd rust
