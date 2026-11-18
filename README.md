@@ -1,138 +1,69 @@
-# Solana Launch Alerts
+# solana-launch-alerts (Rust) · alpha
 
-**An open standard for launch-risk alerts on Solana launchpads, with small SDKs to receive them safely.**
+Rust SDK for the **[Solana Launch Alerts](https://github.com/Trenchwatch/solana-launch-alerts/blob/main/README.md)** open standard: verify signed launch-risk alert webhooks and parse alerts (spec version `2026-10`).
 
-Security providers, wallets, launchpads and trading terminals all want to warn users about risky token launches. Today every provider invents its own payload and its own webhook signing, so each integration is built from scratch. This project defines one simple format and one signing scheme, and ships verified reference SDKs for TypeScript and Python, plus a Rust SDK in alpha.
+Same behaviour as the TypeScript and Python reference SDKs, checked against the same cross-language test vectors in [`examples/test-vectors.json`](https://github.com/Trenchwatch/solana-launch-alerts/blob/main/examples/test-vectors.json).
 
-- **[SPEC.md](SPEC.md):** the alert object, the alert types, the evidence levels and the webhook signing rules.
-- **[schema/](schema/launch-alert.v1.schema.json):** JSON Schema (draft 2020-12) of an alert.
-- **[typescript/](typescript/)** and **[python/](python/):** reference SDKs, no runtime dependencies.
-- **[rust/](rust/):** Rust SDK (alpha), same behaviour, same test vectors.
-- **[examples/](examples/):** synthetic example alerts and cross-language signature test vectors.
+> **Status: alpha (`0.1.0-alpha.1`).** The API may still change before 1.0.
 
-MIT licence. Maintained by [EMERGE](#maintainers); used in production by Trenchwatch.
+## Install
 
----
+```bash
+cargo add solana-launch-alerts@0.1.0-alpha.1
+```
 
-## What an alert looks like
+Minimum Rust version: 1.70. Dependencies: `hmac`, `sha2`, `hex`, `serde_json`. No `unsafe` code.
 
-```json
-{
-  "api_version": "2026-10",
-  "id": "EX-0002",
-  "type": "operator_cluster_buy",
-  "level": "COORDINATED",
-  "detected_at_utc": "2026-10-15 01:00:05",
-  "token": "<mint address>",
-  "operator": {"id": "TW-9001", "address": "<address>"},
-  "summary": "5 wallets of address group TW-9001 bought this token shortly after launch.",
-  "evidence": [{"step": "buy", "wallet": "<address>", "transaction": "<signature>"}],
-  "transaction": "<signature>",
-  "sandbox": true
+## Receive an alert
+
+```rust
+use solana_launch_alerts::{parse_alert, verify_request, VerifyOptions};
+
+fn handle(headers: &[(String, String)], raw_body: &[u8], secret: &str) -> u16 {
+    // Verify the RAW body first: the signature covers the exact bytes sent.
+    let headers = headers.iter().map(|(k, v)| (k.as_str(), v.as_str()));
+    if !verify_request(headers, raw_body, secret, &VerifyOptions::default()) {
+        return 401;
+    }
+    let Ok(alert) = parse_alert(raw_body) else { return 400 };
+    if !alert.sandbox && alert.is_known_type() {
+        // your code; use alert.id to drop duplicates
+    }
+    200
 }
 ```
 
-Eight stable alert types (`operator_launch`, `operator_cluster_buy`, `coordinated_support`, `linked_wallet_buy`, `funding_batch`, `linked_wallet`, `profit_sweep`, `exit_route`) and four evidence levels (`RELATED`, `COORDINATED`, `SUSPECTED`, `CONFIRMED`). The format says **what** was observed, never **how** a provider detected it. In v1 identifiers, an "operator" means a group of addresses a provider has seen across repeat launches, with a stable ID; it says nothing about who is behind them.
-
-## Receiving alerts
-
-Every webhook carries `X-<Provider>-Timestamp` and `X-<Provider>-Signature`, the hex HMAC-SHA256 of `"<timestamp>.<raw body>"`. The SDKs check freshness (5 minutes), compare in constant time and parse the alert.
-
-### TypeScript / Node.js (18+)
-
-```bash
-npm install solana-launch-alerts
-```
-
-```ts
-import express from "express";
-import { verifyRequest, parseAlert, isKnownType } from "solana-launch-alerts";
-
-const app = express();
-
-// Keep the RAW body: the signature covers the exact bytes sent.
-app.post("/alerts", express.raw({ type: "application/json" }), (req, res) => {
-  if (!verifyRequest(req.headers, req.body, process.env.WEBHOOK_SECRET!)) return res.sendStatus(401);
-  const alert = parseAlert(req.body);
-  res.sendStatus(200);                       // answer fast, work afterwards
-  if (alert.sandbox || !isKnownType(alert.type)) return;
-  queueForReview(alert);                     // your code; use alert.id to drop duplicates
-});
-```
-
-### Python (3.9+)
-
-```bash
-pip install solana-launch-alerts
-```
-
-```python
-import os
-from fastapi import FastAPI, Request, Response
-from solana_launch_alerts import verify_request, parse_alert
-
-app = FastAPI()
-
-@app.post("/alerts")
-async def alerts(request: Request):
-    raw = await request.body()               # the raw bytes, before any JSON parsing
-    if not verify_request(request.headers, raw, os.environ["WEBHOOK_SECRET"]):
-        return Response(status_code=401)
-    alert = parse_alert(raw)
-    if not alert.sandbox and alert.is_known_type:
-        queue_for_review(alert)              # your code; use alert.id to drop duplicates
-    return Response(status_code=200)
-```
-
-### Rust (alpha)
-
-See [rust/README.md](rust/README.md). Install from Git for now:
-
-```toml
-solana-launch-alerts = { git = "https://github.com/Trenchwatch/solana-launch-alerts" }
-```
+With `http::HeaderMap` (axum, hyper, actix):
 
 ```rust
-use solana_launch_alerts::{verify_request, parse_alert, VerifyOptions};
-
 let pairs = headers.iter().map(|(k, v)| (k.as_str(), v.to_str().unwrap_or("")));
-if !verify_request(pairs, &raw_body, &secret, &VerifyOptions::default()) { /* 401 */ }
-let alert = parse_alert(&raw_body)?;
+let ok = verify_request(pairs, &body, &secret, &VerifyOptions::default());
 ```
 
-Another provider's headers? Pass its name: `verify_request(headers, raw, secret, provider="Acme")` / `verifyRequest(headers, raw, secret, { provider: "Acme" })`.
+Another provider's headers? Set `VerifyOptions { provider: "Acme".into(), ..Default::default() }`.
 
-## Sending alerts (providers)
+## API
 
-Build the alert object as in [SPEC.md](SPEC.md), serialise it once, then sign those exact bytes:
+| Item | What it does |
+| --- | --- |
+| `sign(secret, timestamp, raw_body)` | Hex HMAC-SHA256 of `"<timestamp>.<raw body>"` (for providers and tests). |
+| `verify_signature(secret, timestamp, raw_body, signature, &opts)` | Freshness check (300 s by default) and constant-time signature comparison. |
+| `verify_request(headers, raw_body, secret, &opts)` | Same, reading `X-<Provider>-Timestamp` / `X-<Provider>-Signature` (case-insensitive). |
+| `parse_alert(bytes)` / `parse_alert_value(json)` | Checks required fields and types; returns `Alert` or `InvalidAlert`. Unknown fields are kept in `alert.raw`; unknown type codes are accepted. |
+| `Alert::is_known_type()` / `Alert::level_rank()` | Filter by known codes and by minimum evidence level (0 = `RELATED` … 3 = `CONFIRMED`). |
 
-```python
-from solana_launch_alerts import sign
-body = json.dumps(alert).encode()
-ts = str(int(time.time()))
-headers = {"X-Acme-Timestamp": ts, "X-Acme-Signature": sign(secret, ts, body)}
-```
+## Tests and example
 
-Retries keep the same `id` and are signed again with a fresh timestamp.
-
-## Tests
-
-All three SDKs are tested against the same vectors in [`examples/test-vectors.json`](examples/test-vectors.json).
+From a clone of the [repository](https://github.com/Trenchwatch/solana-launch-alerts) (the tests read the shared vectors in `examples/`):
 
 ```bash
-cd python && pip install -e ".[test]" && pytest
-cd typescript && npm install && npm test
-cd rust && cargo test
+cd rust
+cargo test                      # 16 tests, including the shared test vectors
+cargo run --example receive     # sign and verify a synthetic alert
 ```
 
 ## Responsible use
 
-Alerts are probabilistic observations from public on-chain data. They describe addresses and patterns, not people, and are not financial advice. Show them to users as context, not as accusations, and keep ordinary users' wallets out of public outputs.
+Alerts are probabilistic observations from public on-chain data. They describe addresses and patterns, not people, and are not financial advice. Show them to users as context, not as accusations.
 
-## Contributing
-
-Issues and pull requests are welcome, especially new alert types proposed by other providers, and SDKs in other languages that pass the test vectors.
-
-## Maintainers
-
-Maintained by EMERGE, the team behind Trenchwatch (real-time launch-risk alerts for Solana launchpads). Author: **Ivan Alonso**, founder of EMERGE · [LinkedIn](https://www.linkedin.com/in/ivanalonsodev) · [X](https://x.com/ivanalonsodev). Contact: [info@trenchwatch.dev](mailto:info@trenchwatch.dev) · X: [@TrenchwatchTech](https://x.com/TrenchwatchTech) · [trenchwatch.dev](https://trenchwatch.dev)
+MIT licence · Maintained by EMERGE · [trenchwatch.dev](https://trenchwatch.dev)
