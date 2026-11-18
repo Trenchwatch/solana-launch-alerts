@@ -86,10 +86,10 @@ async def alerts(request: Request):
 
 ### Rust (alpha)
 
-See [rust/README.md](rust/README.md). Install from Git for now:
+See [rust/README.md](rust/README.md).
 
-```toml
-solana-launch-alerts = { git = "https://github.com/Trenchwatch/solana-launch-alerts" }
+```bash
+cargo add solana-launch-alerts@0.1.0-alpha.1
 ```
 
 ```rust
