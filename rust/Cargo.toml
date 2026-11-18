@@ -9,9 +9,10 @@ authors = ["EMERGE"]
 repository = "https://github.com/Trenchwatch/solana-launch-alerts"
 homepage = "https://trenchwatch.dev"
 readme = "README.md"
+documentation = "https://docs.rs/solana-launch-alerts"
 keywords = ["solana", "webhook", "hmac", "launchpad", "alerts"]
 categories = ["cryptography", "web-programming", "parser-implementations"]
-include = ["src/**", "tests/**", "examples/**", "README.md", "Cargo.toml"]
+include = ["src/**", "examples/**", "README.md", "LICENSE", "Cargo.toml"]
 
 [dependencies]
 hmac = "0.12"
