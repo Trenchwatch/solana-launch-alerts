@@ -4,6 +4,7 @@
 
 - New Rust SDK (alpha, crate version `0.1.0-alpha.1`) in `rust/`: `sign`, `verify_signature`, `verify_request`, `parse_alert`, `parse_alert_value`, `Alert::is_known_type`, `Alert::level_rank`.
 - The Rust SDK passes the same cross-language test vectors as the TypeScript and Python SDKs.
+- Published on crates.io as `solana-launch-alerts` `0.1.0-alpha.1`.
 - Specification, schema and signing unchanged (`2026-10`).
 
 ## 1.0.1 — November 2026
